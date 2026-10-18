@@ -68,27 +68,19 @@ Al ejecutarse por primera vez:
 
 ---
 
-## ⏰ Programación automática a las 13:00 Horas
+## ⏰ Programación automática
 
 ### Opción 1: En Windows (Programador de Tareas)
 
-#### Mediante línea de comandos (PowerShell / CMD como Administrador):
+#### Ejecución cada hora (Recomendado para avisos casi al momento):
 ```powershell
-schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\Users\fran_\.gemini\antigravity\scratch\castelo-soutomaior-monitor\run_monitor.bat" /sc daily /st 13:00 /ru "%USERNAME%"
+schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\Users\fran_\.gemini\antigravity\scratch\castelo-soutomaior-monitor\run_monitor.bat" /sc hourly /mo 1 /f
 ```
 
-#### Mediante Interfaz Gráfica:
-1. Abre el menú inicio, busca **Programador de tareas** (`taskschd.msc`) y ábrelo.
-2. Haz clic en **Crear tarea...**
-3. En la pestaña **General**, asígnale el nombre `CasteloSoutomaiorMonitor`.
-4. En la pestaña **Desencadenadores**, pulsa **Nuevo...**:
-   - Iniciar la tarea: *Según una programación*.
-   - Configuración: *Diariamente*, a las `13:00:00`.
-5. En la pestaña **Acciones**, pulsa **Nueva...**:
-   - Programa o script: `python.exe` (o selecciona `run_monitor.bat`).
-   - Agregar argumentos: `monitor.py` (si seleccionaste `python.exe`).
-   - Iniciar en: La ruta completa a la carpeta del proyecto (ej: `C:\Users\fran_\.gemini\antigravity\scratch\castelo-soutomaior-monitor`).
-6. Guarda la tarea.
+#### Ejecución diaria única (a las 13:00):
+```powershell
+schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\Users\fran_\.gemini\antigravity\scratch\castelo-soutomaior-monitor\run_monitor.bat" /sc daily /st 13:00 /f
+```
 
 ---
 
@@ -99,9 +91,14 @@ schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\Users\fran_\.gemini\anti
    crontab -e
    ```
 
-2. Añade la siguiente directiva al final del archivo para ejecutar **todos los días a las 13:00**:
-   ```cron
-   0 13 * * * cd /ruta/al/proyecto/castelo-soutomaior-monitor && /usr/bin/python3 monitor.py >> monitor.log 2>&1
-   ```
+2. Añade la directiva según la frecuencia deseada:
+   - **Cada hora**:
+     ```cron
+     0 * * * * cd /ruta/al/proyecto/castelo-soutomaior-monitor && /usr/bin/python3 monitor.py >> monitor.log 2>&1
+     ```
+   - **Diario a las 13:00**:
+     ```cron
+     0 13 * * * cd /ruta/al/proyecto/castelo-soutomaior-monitor && /usr/bin/python3 monitor.py >> monitor.log 2>&1
+     ```
 
 *(Recuerda reemplazar `/ruta/al/proyecto/` y `/usr/bin/python3` por tus rutas absolutas reales, obtenidas con `pwd` y `which python3`)*.
