@@ -289,6 +289,13 @@ def notify_first_run(items: List[Dict[str, Any]]) -> None:
     send_telegram_message(mensaje)
 
 
+def normalize_name(text: str) -> str:
+    """Normaliza espacios, elimina caracteres invisibles (\xa0) y pasa a minúsculas."""
+    if not text:
+        return ""
+    return " ".join(text.replace("\xa0", " ").split()).lower()
+
+
 # ==============================================================================
 # EJECUCIÓN PRINCIPAL
 # ==============================================================================
@@ -305,8 +312,11 @@ def run():
             logger.warning("No se obtuvieron elementos en el inventario actual.")
             return
 
-        # Conjunto normalizado de nombres actuales
-        current_names_map = {item["name"].strip().lower(): item for item in current_items}
+        # Mapeo normalizado
+        current_keys_map = {}
+        for item in current_items:
+            key = str(item.get("id")) if item.get("id") else normalize_name(item.get("name", ""))
+            current_keys_map[key] = item
 
         # 2. Cargar estado previo
         previous_data = load_previous_state(DATA_FILE)
@@ -319,14 +329,17 @@ def run():
             return
 
         previous_items = previous_data.get("items", [])
-        previous_names = {item["name"].strip().lower() for item in previous_items}
+        previous_keys = set()
+        for item in previous_items:
+            key = str(item.get("id")) if item.get("id") else normalize_name(item.get("name", ""))
+            previous_keys.add(key)
 
         # 3. Comparación (Diferencia de conjuntos)
-        new_names = set(current_names_map.keys()) - previous_names
+        new_keys = set(current_keys_map.keys()) - previous_keys
 
-        if new_names:
-            logger.info(f"¡Atención! Se han encontrado {len(new_names)} elementos nuevos.")
-            new_items_list = [current_names_map[name] for name in new_names]
+        if new_keys:
+            logger.info(f"¡Atención! Se han encontrado {len(new_keys)} elementos nuevos.")
+            new_items_list = [current_keys_map[k] for k in new_keys]
             notify_new_items(new_items_list)
         else:
             logger.info("Comprobación finalizada: No hay entradas nuevas hoy.")
