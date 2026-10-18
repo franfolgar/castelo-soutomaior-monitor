@@ -1,6 +1,5 @@
 .env
 *.log
-estado_anterior.json
 estado_anterior.tmp
 __pycache__/
 *.py[cod]
