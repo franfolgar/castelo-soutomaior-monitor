@@ -47,5 +47,6 @@ jobs:
             echo "Sin cambios en el inventario. No es necesario commit."
           else
             git commit -m "chore: actualizar estado del inventario [skip ci]"
+            git pull --rebase origin main
             git push
           fi

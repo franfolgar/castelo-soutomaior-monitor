@@ -345,16 +345,22 @@ def run():
 
         # 3. Comparación (Diferencia de conjuntos)
         new_keys = set(current_keys_map.keys()) - previous_keys
+        has_catalog_changed = False
 
         if new_keys:
             logger.info(f"¡Atención! Se han encontrado {len(new_keys)} elementos nuevos.")
             new_items_list = [current_keys_map[k] for k in new_keys]
             notify_new_items(new_items_list)
+            has_catalog_changed = True
+        elif set(current_keys_map.keys()) != previous_keys or len(current_items) != len(previous_items):
+            logger.info("El catálogo ha cambiado (entradas retiradas o modificadas).")
+            has_catalog_changed = True
         else:
             logger.info("Comprobación finalizada: No hay entradas nuevas hoy.")
 
-        # 4. Actualizar estado
-        save_current_state(DATA_FILE, current_items)
+        # 4. Actualizar estado únicamente si hubo cambios reales en el catálogo
+        if has_catalog_changed:
+            save_current_state(DATA_FILE, current_items)
 
     except Exception as exc:
         logger.critical(f"Error crítico en el proceso de monitorización: {exc}", exc_info=True)
