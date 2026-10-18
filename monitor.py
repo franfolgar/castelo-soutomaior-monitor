@@ -110,11 +110,13 @@ def fetch_products_via_api() -> List[Dict[str, Any]]:
     logger.info(f"Consultando catálogo general y de eventos (POS {pos_id})...")
     res_gen = session.get(CLORIAN_PRODUCTS_GENERAL, headers=headers, timeout=20)
     res_gen.raise_for_status()
-    general_items = res_gen.json() if isinstance(res_gen.json(), list) else []
+    gen_data = res_gen.json()
+    general_items = gen_data if isinstance(gen_data, list) else []
 
     res_events = session.get(CLORIAN_PRODUCTS_EVENTS, headers=headers, timeout=20)
     res_events.raise_for_status()
-    event_items = res_events.json() if isinstance(res_events.json(), list) else []
+    evt_data = res_events.json()
+    event_items = evt_data if isinstance(evt_data, list) else []
 
     raw_items = general_items + event_items
     cleaned = []
@@ -193,7 +195,14 @@ def get_current_inventory() -> List[Dict[str, Any]]:
         return fetch_products_via_api()
     except Exception as e:
         logger.error(f"Error consultando API directa: {e}. Probando fallback Playwright...")
-        return fetch_products_via_playwright()
+        try:
+            return fetch_products_via_playwright()
+        except Exception as pw_err:
+            logger.critical(
+                f"Tanto la API directa como Playwright han fallado. "
+                f"API: {e} | Playwright: {pw_err}"
+            )
+            raise
 
 
 # ==============================================================================
