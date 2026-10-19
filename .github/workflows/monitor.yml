@@ -2,8 +2,10 @@ name: Monitor de Entradas Castelo de Soutomaior
 
 on:
   schedule:
-    # Se ejecuta cada hora en punto (minuto 0)
-    - cron: '0 * * * *'
+    # Minutos no congestionados (:17 y :47 de cada hora).
+    # El minuto :00 sufre colas masivas y retrasos en los servidores globales de GitHub.
+    - cron: '17 * * * *'
+    - cron: '47 * * * *'
   workflow_dispatch:
     # Permite ejecutar manualmente la comprobación desde la pestaña Actions en GitHub
 
