@@ -1,5 +1,5 @@
 {
-  "last_checked": "2026-10-18T21:14:30.632923",
+  "last_checked": "2026-10-26T14:23:30.023458",
   "total_items": 4,
   "items": [
     {
@@ -27,7 +27,12 @@
       "status": "enabled"
     },
     {
-     
+      "id": 9054,
+      "name": "Visitas teatralizadas",
+      "short_name": "VISITAS TEATRALIZADAS SAMAIN FAMILIAS",
+      "price": 8.0,
+      "slug": "visitas-teatralizadas",
+      "status": "enabled"
     }
   ]
 }
