@@ -27,12 +27,7 @@
       "status": "enabled"
     },
     {
-      "id": 9054,
-      "name": "Visitas teatralizadas",
-      "short_name": "VISITAS TEATRALIZADAS SAMAIN FAMILIAS",
-      "price": 8.0,
-      "slug": "visitas-teatralizadas",
-      "status": "enabled"
+     
     }
   ]
 }
