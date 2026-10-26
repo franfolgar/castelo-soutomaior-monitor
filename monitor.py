@@ -12,6 +12,7 @@ import os
 import sys
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Set, Any
 from datetime import datetime
@@ -39,7 +40,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
     ],
 )
@@ -241,25 +242,42 @@ def save_current_state(filepath: Path, items: List[Dict[str, Any]]) -> None:
 # ==============================================================================
 
 def send_telegram_message(message: str) -> None:
-    """Envía un mensaje formateado a Telegram."""
+    """Envía un mensaje formateado a Telegram dividiéndolo si supera 4000 caracteres."""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("Credenciales de Telegram no configuradas en el archivo .env.")
         return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": False,
-    }
+    MAX_LENGTH = 4000
 
-    try:
-        resp = requests.post(url, json=payload, timeout=15)
-        resp.raise_for_status()
-        logger.info("Notificación enviada a Telegram con éxito.")
-    except Exception as e:
-        logger.error(f"Error al conectar con la API de Telegram: {e}")
+    chunks = []
+    if len(message) <= MAX_LENGTH:
+        chunks = [message]
+    else:
+        current_chunk = ""
+        for line in message.split("\n"):
+            if len(current_chunk) + len(line) + 1 > MAX_LENGTH:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                current_chunk = line
+            else:
+                current_chunk = f"{current_chunk}\n{line}" if current_chunk else line
+        if current_chunk:
+            chunks.append(current_chunk)
+
+    for chunk in chunks:
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": chunk,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": False,
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=15)
+            resp.raise_for_status()
+            logger.info("Notificación enviada a Telegram con éxito.")
+        except Exception as e:
+            logger.error(f"Error al conectar con la API de Telegram: {e}")
 
 
 def notify_new_items(new_items: List[Dict[str, Any]]) -> None:

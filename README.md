@@ -74,12 +74,12 @@ Al ejecutarse por primera vez:
 
 #### Ejecución cada hora (Recomendado para avisos casi al momento):
 ```powershell
-schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\Users\fran_\.gemini\antigravity\scratch\castelo-soutomaior-monitor\run_monitor.bat" /sc hourly /mo 1 /f
+schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\ruta\a\castelo-soutomaior-monitor\run_monitor.bat" /sc hourly /mo 1 /f
 ```
 
 #### Ejecución diaria única (a las 13:00):
 ```powershell
-schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\Users\fran_\.gemini\antigravity\scratch\castelo-soutomaior-monitor\run_monitor.bat" /sc daily /st 13:00 /f
+schtasks /create /tn "CasteloSoutomaiorMonitor" /tr "C:\ruta\a\castelo-soutomaior-monitor\run_monitor.bat" /sc daily /st 13:00 /f
 ```
 
 ---
