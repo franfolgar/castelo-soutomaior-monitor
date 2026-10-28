@@ -2,9 +2,9 @@ name: Monitor de Entradas Castelo de Soutomaior
 
 on:
   schedule:
-    # 5 ejecuciones al día en horario laboral de España:
-    # 09:05, 10:05, 12:05, 14:05 y 15:05 (CET / UTC+1) -> 08, 09, 11, 13, 14 UTC
-    - cron: '5 8,9,11,13,14 * * *'
+    # Ejecución cada 30 minutos (:17 y :47 de cada hora)
+    - cron: '17 * * * *'
+    - cron: '47 * * * *'
   workflow_dispatch:
     # Permite ejecutar manualmente la comprobación desde la pestaña Actions en GitHub
 
