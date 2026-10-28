@@ -10,6 +10,7 @@ en tickets.castelodesoutomaior.com y notifica novedades por Telegram.
 
 import os
 import sys
+import html
 import json
 import logging
 from logging.handlers import RotatingFileHandler
@@ -82,8 +83,21 @@ def create_session() -> requests.Session:
 
 
 # ==============================================================================
-# EXTRACCIÓN DE ENTRADAS (API OFICIAL & FALLBACK PLAYWRIGHT)
+# EXTRACCIÓN DE ENTRADAS (API OFICIAL)
 # ==============================================================================
+
+def fetch_product_list(session: requests.Session, url: str, headers: Dict[str, str], label: str) -> List[Dict[str, Any]]:
+    """
+    Descarga un catálogo y exige que sea una lista. Una respuesta inesperada se
+    trata como error: tomarla como vacía haría creer que se retiraron entradas.
+    """
+    resp = session.get(url, headers=headers, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+    if not isinstance(data, list):
+        raise ValueError(f"Respuesta inesperada del catálogo {label}: {str(data)[:200]}")
+    return data
+
 
 def fetch_products_via_api() -> List[Dict[str, Any]]:
     """
@@ -101,7 +115,7 @@ def fetch_products_via_api() -> List[Dict[str, Any]]:
     if not access_token:
         raise ValueError("No se pudo obtener el token de acceso de Clorian.")
 
-    pos_id = str(token_data.get("posAllowed", ["3255"])[0])
+    pos_id = str((token_data.get("posAllowed") or ["3255"])[0])
     headers = {
         "Authorization": f"Bearer {access_token}",
         "pos": pos_id,
@@ -109,15 +123,8 @@ def fetch_products_via_api() -> List[Dict[str, Any]]:
     }
 
     logger.info(f"Consultando catálogo general y de eventos (POS {pos_id})...")
-    res_gen = session.get(CLORIAN_PRODUCTS_GENERAL, headers=headers, timeout=20)
-    res_gen.raise_for_status()
-    gen_data = res_gen.json()
-    general_items = gen_data if isinstance(gen_data, list) else []
-
-    res_events = session.get(CLORIAN_PRODUCTS_EVENTS, headers=headers, timeout=20)
-    res_events.raise_for_status()
-    evt_data = res_events.json()
-    event_items = evt_data if isinstance(evt_data, list) else []
+    general_items = fetch_product_list(session, CLORIAN_PRODUCTS_GENERAL, headers, "general")
+    event_items = fetch_product_list(session, CLORIAN_PRODUCTS_EVENTS, headers, "eventos")
 
     raw_items = general_items + event_items
     cleaned = []
@@ -141,69 +148,6 @@ def fetch_products_via_api() -> List[Dict[str, Any]]:
 
     logger.info(f"Catálogo obtenido vía API: {len(cleaned)} entradas/apartados encontrados.")
     return cleaned
-
-
-def fetch_products_via_playwright() -> List[Dict[str, Any]]:
-    """
-    Fallback usando Playwright para renderizar la página SPA si la API cambia.
-    """
-    from playwright.sync_api import sync_playwright
-
-    logger.warning("Ejecutando fallback mediante Playwright (navegador headless)...")
-    items = []
-
-    with sync_playwright() as p:
-        browser = None
-        for channel in ["msedge", "chrome", None]:
-            try:
-                if channel:
-                    browser = p.chromium.launch(headless=True, channel=channel)
-                else:
-                    browser = p.chromium.launch(headless=True)
-                break
-            except Exception:
-                continue
-
-        if not browser:
-            raise RuntimeError("No se pudo iniciar ningún navegador Chromium para Playwright.")
-
-        page = browser.new_page()
-        page.goto(TARGET_URL, wait_until="networkidle", timeout=45000)
-
-        # Extraer títulos de entradas visibles
-        cards = page.locator("h2, h3, .title, [class*='title']").all_text_contents()
-        browser.close()
-
-        for c in cards:
-            c_clean = c.strip()
-            # Filtrar textos no relevantes
-            if len(c_clean) > 5 and not any(skip in c_clean.lower() for skip in ["cookie", "politica", "aviso", "deputacion"]):
-                items.append({
-                    "id": None,
-                    "name": c_clean,
-                    "price": None,
-                    "slug": None,
-                    "status": "enabled",
-                })
-
-    logger.info(f"Catálogo obtenido vía Playwright: {len(items)} entradas detectadas.")
-    return items
-
-
-def get_current_inventory() -> List[Dict[str, Any]]:
-    """Intenta primero por API directa; si falla, recurre a Playwright."""
-    try:
-        return fetch_products_via_api()
-    except Exception as e:
-        logger.error(f"Error consultando API directa: {e}. Probando fallback Playwright...")
-        try:
-            return fetch_products_via_playwright()
-        except Exception as pw_err:
-            logger.critical(
-                f"Tanto la API directa como Playwright han fallado. "
-                f"API: {e} | Playwright: {pw_err}"
-            )
-            raise
 
 
 # ==============================================================================
@@ -241,11 +185,14 @@ def save_current_state(filepath: Path, items: List[Dict[str, Any]]) -> None:
 # SISTEMA DE NOTIFICACIONES TELEGRAM
 # ==============================================================================
 
-def send_telegram_message(message: str) -> None:
-    """Envía un mensaje formateado a Telegram dividiéndolo si supera 4000 caracteres."""
+def send_telegram_message(message: str) -> bool:
+    """
+    Envía un mensaje formateado a Telegram dividiéndolo si supera 4000 caracteres.
+    Devuelve True solo si todos los fragmentos se enviaron correctamente.
+    """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("Credenciales de Telegram no configuradas en el archivo .env.")
-        return
+        return False
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     MAX_LENGTH = 4000
@@ -265,6 +212,7 @@ def send_telegram_message(message: str) -> None:
         if current_chunk:
             chunks.append(current_chunk)
 
+    ok = True
     for chunk in chunks:
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
@@ -274,18 +222,30 @@ def send_telegram_message(message: str) -> None:
         }
         try:
             resp = requests.post(url, json=payload, timeout=15)
-            resp.raise_for_status()
+            if not resp.ok:
+                # Telegram explica el motivo (p. ej. HTML mal formado) en el cuerpo
+                raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:300]}")
             logger.info("Notificación enviada a Telegram con éxito.")
         except Exception as e:
-            logger.error(f"Error al conectar con la API de Telegram: {e}")
+            logger.error(f"Error al enviar el mensaje a Telegram: {e}")
+            ok = False
+    return ok
 
 
-def notify_new_items(new_items: List[Dict[str, Any]]) -> None:
+def format_price(price: Any) -> str:
+    """Formatea el precio como '7.50€'; tolera valores numéricos en texto."""
+    try:
+        return f"{float(price):.2f}€"
+    except (TypeError, ValueError):
+        return html.escape(f"{price}€")
+
+
+def notify_new_items(new_items: List[Dict[str, Any]]) -> bool:
     """Construye y envía la alerta de nuevos apartados o entradas."""
     lineas = []
     for item in new_items:
-        nombre = item["name"]
-        precio = f" | <b>{item['price']:.2f}€</b>" if item.get("price") is not None else ""
+        nombre = html.escape(item["name"])
+        precio = f" | <b>{format_price(item['price'])}</b>" if item.get("price") is not None else ""
         lineas.append(f"🎟 <b>{nombre}</b>{precio}")
 
     lista_texto = "\n".join(lineas)
@@ -298,22 +258,26 @@ def notify_new_items(new_items: List[Dict[str, Any]]) -> None:
         f"🔗 <a href='{TARGET_URL}'>Comprar / Ver Entradas Oficiales</a>\n"
         f"📅 <i>Fecha de detección: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</i>"
     )
-    send_telegram_message(mensaje)
+    return send_telegram_message(mensaje)
 
 
-def notify_first_run(items: List[Dict[str, Any]]) -> None:
+def notify_first_run(items: List[Dict[str, Any]]) -> bool:
     """Envía un mensaje de confirmación al iniciar por primera vez."""
-    lineas = [f"• {item['name']}" + (f" ({item['price']:.2f}€)" if item.get('price') else "") for item in items]
+    lineas = [
+        f"• {html.escape(item['name'])}"
+        + (f" ({format_price(item['price'])})" if item.get("price") is not None else "")
+        for item in items
+    ]
     lista_texto = "\n".join(lineas)
 
     mensaje = (
         "🟢 <b>Monitor de Entradas Activado</b>\n"
         "🏰 <i>Castelo de Soutomaior</i>\n\n"
-        f"Se ha inicializado la vigilancia diaria. Actualmente hay <b>{len(items)}</b> entradas registradas:\n\n"
+        f"Se ha inicializado la vigilancia. Actualmente hay <b>{len(items)}</b> entradas registradas:\n\n"
         f"{lista_texto}\n\n"
-        "Te avisaré automáticamente cada día si aparece cualquier nueva entrada o apartado a la venta."
+        "Te avisaré automáticamente si aparece cualquier nueva entrada o apartado a la venta."
     )
-    send_telegram_message(mensaje)
+    return send_telegram_message(mensaje)
 
 
 def normalize_name(text: str) -> str:
@@ -327,17 +291,18 @@ def normalize_name(text: str) -> str:
 # EJECUCIÓN PRINCIPAL
 # ==============================================================================
 
-def run():
+def run() -> int:
+    """Ejecuta una comprobación. Devuelve el código de salida (0 = OK, 1 = error)."""
     logger.info("=================================================================")
     logger.info("Iniciando monitorización: Castelo de Soutomaior")
     logger.info("=================================================================")
 
     try:
         # 1. Extraer inventario actual
-        current_items = get_current_inventory()
+        current_items = fetch_products_via_api()
         if not current_items:
             logger.warning("No se obtuvieron elementos en el inventario actual.")
-            return
+            return 0
 
         # Mapeo normalizado
         current_keys_map = {}
@@ -351,9 +316,10 @@ def run():
 
         if is_first_run:
             logger.info("Primera ejecución detectada. Guardando estado base inicial...")
-            notify_first_run(current_items)
+            # Se guarda aunque falle el aviso: perder la confirmación no oculta entradas nuevas
+            sent = notify_first_run(current_items)
             save_current_state(DATA_FILE, current_items)
-            return
+            return 0 if sent else 1
 
         previous_items = previous_data.get("items", [])
         previous_keys = set()
@@ -368,7 +334,10 @@ def run():
         if new_keys:
             logger.info(f"¡Atención! Se han encontrado {len(new_keys)} elementos nuevos.")
             new_items_list = [current_keys_map[k] for k in new_keys]
-            notify_new_items(new_items_list)
+            if not notify_new_items(new_items_list):
+                # Sin guardar estado, la próxima ejecución reintentará el aviso
+                logger.error("No se pudo avisar por Telegram; el estado no se actualiza.")
+                return 1
             has_catalog_changed = True
         elif set(current_keys_map.keys()) != previous_keys or len(current_items) != len(previous_items):
             logger.info("El catálogo ha cambiado (entradas retiradas o modificadas).")
@@ -379,12 +348,14 @@ def run():
         # 4. Actualizar estado únicamente si hubo cambios reales en el catálogo
         if has_catalog_changed:
             save_current_state(DATA_FILE, current_items)
+        return 0
 
     except Exception as exc:
         logger.critical(f"Error crítico en el proceso de monitorización: {exc}", exc_info=True)
+        return 1
     finally:
         logger.info("Fin de la ejecución del monitor.\n")
 
 
 if __name__ == "__main__":
-    run()
+    sys.exit(run())

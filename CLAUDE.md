@@ -1,9 +1,9 @@
 # Monitor de entradas · Castelo de Soutomaior
 
-Script Python (`monitor.py`) que compara el catálogo de tickets.castelodesoutomaior.com (API Clorian, con fallback a Playwright) con `estado_anterior.json` y avisa por Telegram cuando aparecen entradas nuevas.
+Script Python (`monitor.py`) que compara el catálogo de tickets.castelodesoutomaior.com (API Clorian) con `estado_anterior.json` y avisa por Telegram cuando aparecen entradas nuevas.
 
 ## Ejecutar
-- `pip install -r requirements.txt` (opcional: `playwright install chromium`)
+- `pip install -r requirements.txt`
 - `python monitor.py` · en Windows: `run_monitor.bat`
 
 ## Configuración

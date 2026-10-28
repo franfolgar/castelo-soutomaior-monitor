@@ -6,7 +6,7 @@ Script automatizado en Python diseñado para ejecutarse diariamente, comparar el
 
 ## 🚀 Características
 
-- **Extracción de alto rendimiento**: Conexión directa y autenticada con la API oficial del catálogo (Clorian Backend) y fallback automático a renderizado con navegador *headless* (Playwright) si la interfaz sufre cambios estructurales.
+- **Extracción de alto rendimiento**: Conexión directa y autenticada con la API oficial del catálogo (Clorian Backend). Si la API falla o responde algo inesperado, el script termina con error (código 1) sin tocar el estado.
 - **Diferencia de conjuntos**: Comparación exacta contra el estado registrado el día anterior (`estado_anterior.json`).
 - **Sistema de alertas en Telegram**: Envío de avisos instantáneos con los nombres de las nuevas entradas, precios base y enlace directo a la web oficial de compra.
 - **Escritura atómica**: Evita la corrupción del estado local ante caídas de luz o fallos de red durante el guardado.
@@ -26,11 +26,6 @@ Script automatizado en Python diseñado para ejecutarse diariamente, comparar el
 2. Instala las dependencias necesarias:
    ```bash
    pip install -r requirements.txt
-   ```
-
-3. *(Opcional, para fallback con Playwright en Linux o servidores sin Chromium)*:
-   ```bash
-   playwright install chromium
    ```
 
 ---
