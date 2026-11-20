@@ -1,6 +1,6 @@
 {
-  "last_checked": "2026-11-10T13:01:04.768482",
-  "total_items": 3,
+  "last_checked": "2026-11-20T11:30:27.703677",
+  "total_items": 4,
   "items": [
     {
       "id": 8051,
@@ -24,6 +24,14 @@
       "short_name": "Visita Guiada Castillo + Jardines",
       "price": 7.5,
       "slug": "visita-guiada-al-castillo-y-a-los-jardines",
+      "status": "enabled"
+    },
+    {
+      "id": 14884,
+      "name": "Visitas teatralizadas de navidad",
+      "short_name": "Visitas teatralizadas de navidad ",
+      "price": 8.0,
+      "slug": "visitas-teatralizadas-de-navidad",
       "status": "enabled"
     }
   ]
