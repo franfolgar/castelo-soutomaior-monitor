@@ -1,6 +1,6 @@
 {
-  "last_checked": "2026-11-20T11:30:27.703677",
-  "total_items": 4,
+  "last_checked": "2026-11-20T12:30:49.968478",
+  "total_items": 5,
   "items": [
     {
       "id": 8051,
@@ -24,6 +24,14 @@
       "short_name": "Visita Guiada Castillo + Jardines",
       "price": 7.5,
       "slug": "visita-guiada-al-castillo-y-a-los-jardines",
+      "status": "enabled"
+    },
+    {
+      "id": 9054,
+      "name": "Visitas teatralizadas",
+      "short_name": "VISITAS TEATRALIZADAS SAMAIN FAMILIAS",
+      "price": 8.0,
+      "slug": "visitas-teatralizadas",
       "status": "enabled"
     },
     {
